@@ -5,6 +5,10 @@ import com.typesafe.sbt.SbtSite._
 import sbt.Keys._
 import sbt._
 
+resolvers += Resolver.sonatypeRepo("releases")
+
+addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.4")
+
 val buildSettings: Seq[Setting[_]] = Defaults.coreDefaultSettings ++ Seq[Setting[_]](
   organization := "com.casualmiracles",
   name := "treelog",
@@ -38,6 +42,7 @@ val websiteSettings = site.settings ++ ghpages.settings ++ Seq[Setting[_]](
 
 val allDependencies = Seq(
   "org.scalaz"    %% "scalaz-core"     % "7.3.0-M8",
+  "org.scalaz"    %% "scalaz-effect"   % "7.3.0-M8",
   "org.scalatest" %% "scalatest"       % "3.0.0"   % "test",
   "io.argonaut"   %% "argonaut"        % "6.2-RC1" % "test",
   "io.argonaut"   %% "argonaut-scalaz" % "6.2-RC1" % "test")
