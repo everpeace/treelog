@@ -1,8 +1,9 @@
 package treelog
 
-import scalaz.{-\/, EitherT, Monad, Monoid, Show, Traverse, Tree, Writer, \/, \/-}
+import scalaz.{-\/, EitherT, Monad, Monoid, Show, Traverse, Tree, WriterT, \/, \/-}
 import scalaz.Tree.{Leaf, Node}
 import scalaz.syntax.traverse._
+import scala.language.higherKinds
 
 /**
  * See the [[treelog]] package documentation for a brief introduction to treelog and also,
@@ -16,8 +17,11 @@ import scalaz.syntax.traverse._
  */
 trait LogTreeSyntax[Annotation] {
   type LogTree = Tree[LogTreeLabel[Annotation]]
-  type LogTreeWriter[V] = Writer[LogTree, V]
+  import scalaz.Scalaz.Id
+  type LogTreeWriterM[F[_], V] = WriterT[F, LogTree, V]
+  type LogTreeWriter[V] = LogTreeWriterM[Id, V]
   type DescribedComputation[V] = EitherT[LogTreeWriter, String, V]
+  type DescribedComputationM[F[_], V] = EitherT[LogTreeWriterM[F, ?], String, V]
 
   private val NilTree: LogTree = Leaf(UndescribedLogTreeLabel(true))
 
@@ -45,19 +49,36 @@ trait LogTreeSyntax[Annotation] {
       }
   }
 
-  private val eitherWriter = EitherT.monadListen[LogTreeWriter, LogTree, String]
+  private val eitherWriter = eitherWriterM[Id]
+  private def eitherWriterM[F[_]] = EitherT.monadListen[LogTreeWriterM[F, ?], LogTree, String]
 
-  private def failure[V](description: String, tree: LogTree): DescribedComputation[V] =
+  private def failure[V](description: String, tree: LogTree): DescribedComputation[V] = failureM[Id, V](description, tree)
+
+  private def failureM[F[_]: Monad, V](description: String, tree: LogTree): DescribedComputationM[F, V] =
     for {
-      _ ← eitherWriter.tell(tree)
-      err ← eitherWriter.left[V](description)
+      _ ← eitherWriterM[F].tell(tree)
+      err ← eitherWriterM[F].left[V](description)
     } yield err
 
-  private def success[V](value: V, tree: LogTree): DescribedComputation[V] =
+
+  private def success[V](value: V, tree: LogTree): DescribedComputation[V] = successM[Id, V](value, tree)
+  private def successM[F[_]: Monad, V](value: V, tree: LogTree): DescribedComputationM[F, V] =
     for {
-      _ ← eitherWriter.tell(tree)
-      res ← eitherWriter.right[V](value)
+      _ ← eitherWriterM[F].tell(tree)
+      res ← eitherWriterM[F].right[V](value)
     } yield res
+
+
+  def failureLogM[F[_]: Monad, V](dcM: DescribedComputationM[F, V]): DescribedComputationM[F, V] = {
+    val logTree = dcM.run.written match {
+      case Node(UndescribedLogTreeLabel(s, a), c) ⇒ Node(UndescribedLogTreeLabel(false, a), c)
+      case Node(DescribedLogTreeLabel(d, s, a), c) ⇒ Node(DescribedLogTreeLabel(d, false, a), c)
+    }
+    dcM.run.value match {
+      case -\/(des) ⇒ failure(des, logTree)
+      case \/-(a) ⇒ success(a, logTree)
+    }
+  }
 
   def failureLog[V](dc: DescribedComputation[V]): DescribedComputation[V] = {
     val logTree = dc.run.written match {
