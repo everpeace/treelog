@@ -43,6 +43,7 @@ val websiteSettings = site.settings ++ ghpages.settings ++ Seq[Setting[_]](
 val allDependencies = Seq(
   "org.scalaz"    %% "scalaz-core"     % "7.3.0-M8",
   "org.scalaz"    %% "scalaz-effect"   % "7.3.0-M8",
+  "org.scalaz" %% "scalaz-scalacheck-binding" % "7.3.0-M8" % "test",
   "org.scalatest" %% "scalatest"       % "3.0.0"   % "test",
   "io.argonaut"   %% "argonaut"        % "6.2-RC1" % "test",
   "io.argonaut"   %% "argonaut-scalaz" % "6.2-RC1" % "test")
